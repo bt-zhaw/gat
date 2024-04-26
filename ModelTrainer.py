@@ -21,25 +21,30 @@ class ModelTrainer:
         self.optimizer = Adam(self.model.parameters(), **optimizer_params)
 
         self.loss_history = []
+        self.accuracy_history = []
         self.best_accuracy = 0.0
         self.best_epoch = 0
         self.best_metrics = {}
 
     def train(self, num_epochs):
         for epoch in range(num_epochs):
-            self.model.train()
-            self.optimizer.zero_grad()
-            output = self.model(self.train_data)
-            loss = F.nll_loss(output[self.train_data.train_mask], self.train_data.y[self.train_data.train_mask])
-            loss.backward()
-            self.optimizer.step()
+            loss = self._train_one_epoch()
+            self.loss_history.append(loss)
+            accuracy = self._evaluate(epoch)
+            self.accuracy_history.append(accuracy)
+            print(f'Epoch {epoch + 1}, Loss: {loss:.4f}, Accuracy: {accuracy:.4f}')
 
-            self.loss_history.append(loss.item())
-            print(f'Epoch {epoch + 1}, Loss: {loss.item():.4f}')
-            self._evaluate(epoch)
-
-        self._plot_loss()
+        self._plot_loss_and_accuracy()
         self._print_best_epoch_metrics()
+
+    def _train_one_epoch(self):
+        self.model.train()
+        self.optimizer.zero_grad()
+        output = self.model(self.train_data)
+        loss = F.nll_loss(output[self.train_data.train_mask], self.train_data.y[self.train_data.train_mask])
+        loss.backward()
+        self.optimizer.step()
+        return loss.item()
 
     def _evaluate(self, epoch):
         self.model.eval()
@@ -54,6 +59,8 @@ class ModelTrainer:
                 self.best_epoch = epoch + 1
                 self._update_best_metrics(predicted)
 
+            return accuracy
+
     def _update_best_metrics(self, predicted):
         all_labels = np.unique(self.test_data.y.numpy())
         self.best_metrics = {
@@ -64,6 +71,27 @@ class ModelTrainer:
             'test_accuracy': accuracy_score(self.test_data.y.numpy(), predicted.numpy())
         }
 
+    def _plot_loss_and_accuracy(self):
+        plt.figure(figsize=(12, 6))
+        plt.subplot(1, 2, 1)
+        plt.plot(self.loss_history, label='Loss', marker='o')
+        plt.title('Loss over Epochs')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.grid(True)
+        plt.legend()
+
+        plt.subplot(1, 2, 2)
+        plt.plot(self.accuracy_history, label='Accuracy', color='r', marker='x')
+        plt.title('Accuracy over Epochs')
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.grid(True)
+        plt.legend()
+
+        plt.tight_layout()
+        plt.show()
+
     def _print_best_epoch_metrics(self):
         print("Best Epoch Results:")
         print("Confusion Matrix:\n", self.best_metrics['conf_matrix'])
@@ -71,15 +99,6 @@ class ModelTrainer:
         print(f"Precision: {self.best_metrics['precision']:.4f}")
         print(f"Recall: {self.best_metrics['recall']:.4f}")
         print(f"F1 Score: {self.best_metrics['f1']:.4f}")
-
-    def _plot_loss(self):
-        plt.figure(figsize=(10, 5))
-        plt.plot(range(1, len(self.loss_history) + 1), self.loss_history, marker='o')
-        plt.title('Loss over Epochs')
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.grid(True)
-        plt.show()
 
     def report(self):
         print(f'Best Epoch: {self.best_epoch} with Accuracy: {self.best_accuracy:.4f}')
