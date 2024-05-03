@@ -111,5 +111,5 @@ class ModelTrainer:
 X, y, header = load_data()
 trainer = ModelTrainer(X, y, model_params={'num_classes': 2}, optimizer_params={'lr': 0.01, 'weight_decay': 0.01})
 #trainer = ModelTrainer(X, y, model_params={'num_classes': 2}, optimizer_params={'lr': 0.01, 'alpha': 0.99})
-trainer.train(80)
+trainer.train(50)
 trainer.report()
