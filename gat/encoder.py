@@ -30,6 +30,25 @@ def ip_encoder(df, column_name):
     return df
 
 
+def datetime_encoder(df, column_name):
+    # Convert the datetime strings in the DataFrame column to Unix time
+    df[f'{column_name}_unix'] = pd.to_datetime(df[column_name].replace('Z', '+00:00')).astype('int64') // 1e9
+
+    # Convert the Unix time to a PyTorch tensor and normalize
+    tensor = torch.tensor(df[f'{column_name}_unix'].values, dtype=torch.float)
+    min_val = torch.min(tensor)
+    max_val = torch.max(tensor)
+    normalized_tensor = (tensor - min_val) / (max_val - min_val)
+
+    # Store normalized values back in DataFrame
+    df[f'{column_name}_normalized'] = normalized_tensor.numpy()
+
+    # Drop the original and intermediate Unix time columns
+    df = df.drop([column_name, f'{column_name}_unix'], axis=1)
+
+    return df
+
+
 def string_encoder(df, column_name):
     # Convert string to a consistent hash value
     def get_hash(x):

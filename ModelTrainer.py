@@ -18,9 +18,6 @@ class ModelTrainer:
         self.test_data = convert_to_graph(X_test, y_test)
 
         self.model = GAT(num_features=self.train_data.num_features, **model_params)
-        #self.optimizer = torch.optim.Adagrad(self.model.parameters(), **optimizer_params)
-        #self.optimizer = torch.optim.RMSprop(self.model.parameters(), **optimizer_params)
-        #self.optimizer = torch.optim.SGD(self.model.parameters(), **optimizer_params)
         self.optimizer = torch.optim.AdamW(self.model.parameters(), **optimizer_params)
 
         self.loss_history = []
@@ -110,6 +107,5 @@ class ModelTrainer:
 # Assuming 'X' and 'y' are defined somewhere in your project
 X, y, header = load_data()
 trainer = ModelTrainer(X, y, model_params={'num_classes': 2}, optimizer_params={'lr': 0.01, 'weight_decay': 0.01})
-#trainer = ModelTrainer(X, y, model_params={'num_classes': 2}, optimizer_params={'lr': 0.01, 'alpha': 0.99})
 trainer.train(50)
 trainer.report()

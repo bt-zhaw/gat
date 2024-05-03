@@ -4,7 +4,7 @@ import torch
 from sklearn.model_selection import train_test_split
 from torch_geometric.data import Data
 
-from gat.encoder import ip_encoder, string_encoder, number_normalizer
+from gat.encoder import ip_encoder, string_encoder, number_normalizer, datetime_encoder
 
 
 def train_test_splitting(X, y):
@@ -30,7 +30,8 @@ def convert_to_graph(X, y):
         'source_port_label': 'string to int',
         'destination_port_label': 'string to int',
         'ack_flag': 'stringbool to int',
-        'psh_flag': 'stringbool to int'
+        'psh_flag': 'stringbool to int',
+        'timestamp': 'string to int' #has to be implemented
     }
 
     X = ip_encoder(X, 'ip_source')
@@ -41,6 +42,7 @@ def convert_to_graph(X, y):
     X = string_encoder(X, 'destination_namespace_label')
     X = number_normalizer(X, 'source_port_label')
     X = number_normalizer(X, 'destination_port_label')
+    X = datetime_encoder(X, 'timestamp')
 
 
     # Mapping for converting y string values to integers
