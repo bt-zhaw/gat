@@ -1,85 +1,62 @@
 import matplotlib.pyplot as plt
-import numpy as np
+from gat.load_data import load_data, split_data
+from gat.graph_utils import create_knn_graph
+from gat.model import initialize_model, GCN
+from gat.evaluation import evaluate_model
+from gat.converter import label_converter
+from torch_geometric.data import Data
+from pathlib import Path
 import torch
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-)
-from sklearn.model_selection import train_test_split
 
-from gat.converter import convert_to_graph
-from gat.encoder import boolean_string_to_int
-from gat.load_data import load_data
-from gat.model import GAT
+EPOCHS = 150
+FILE_PATH = './data/traces.csv'
 
-EPOCHS = 50
-TEST_SIZE = 0.25
-RANDOM_STATE = 42
+def main():
+    df = load_data(Path(FILE_PATH))
 
-def prepare_data():
-    X, y = load_data()
-    y = boolean_string_to_int(y)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=TEST_SIZE, stratify=y, random_state=RANDOM_STATE)
-    train_data = convert_to_graph(X_train, y_train)
-    test_data = convert_to_graph(X_test, y_test)
-    return train_data, test_data, y_train
+    df['is_anomaly'] = df['is_anomaly'].replace({'True': 1, 'False': 0}).astype(int)
+    df = label_converter(df)
 
-def initialize_model(train_data, y_train):
-    model = GAT(
-        torch.optim.Adam,
-        num_features=train_data.num_features,
-        num_classes=len(np.unique(y_train))
-    )
-    return model
+    X = df[['diversity_index']]
+    y = df['is_anomaly']
 
-def plot_loss(loss_values):
-    plt.figure(figsize=(10, 5))
-    plt.plot(range(1, EPOCHS+1), loss_values, marker='o', linestyle='-', color='b')
-    plt.title('Loss per Epoch')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.grid(True)
-    plt.savefig('loss_per_epoch.png')
-    plt.close()
+    X_train, X_test, y_train, y_test = split_data(X, y)
 
-def train_model(model, train_data):
+    train_edge_index = create_knn_graph(X_train)
+    test_edge_index = create_knn_graph(X_test)
+
+    train_data = Data(x=torch.tensor(X_train.values, dtype=torch.float), 
+                      edge_index=train_edge_index, 
+                      y=torch.tensor(y_train.values, dtype=torch.long))
+
+    test_data = Data(x=torch.tensor(X_test.values, dtype=torch.float), 
+                     edge_index=test_edge_index, 
+                     y=torch.tensor(y_test.values, dtype=torch.long))
+
+    model, optimizer, loss_func = initialize_model(train_data)
+
+    # Training loop
     loss_values = []
     for epoch in range(EPOCHS):
-        loss = model.train_model(train_data)
-        loss_values.append(loss)
+        model.train()
+        optimizer.zero_grad()
+        out = model(train_data)
+        loss = loss_func(out, train_data.y)
+        loss.backward()
+        optimizer.step()
+        loss_values.append(loss.item())
         print(f'Epoch {epoch+1}, Loss: {loss:.4f}')
-    plot_loss(loss_values)
 
-def evaluate_model(model, test_data):
-    pred = model.test_model(test_data)
-    all_labels = np.unique(test_data.y.numpy())
-    metrics = {
-        'conf_matrix': confusion_matrix(
-            test_data.y.numpy(), pred.numpy(), labels=all_labels),
-        'precision': precision_score(
-            test_data.y.numpy(), pred.numpy(), average='weighted', labels=all_labels),
-        'recall': recall_score(
-            test_data.y.numpy(), pred.numpy(), average='weighted', labels=all_labels),
-        'f1': f1_score(
-            test_data.y.numpy(), pred.numpy(), average='weighted', labels=all_labels),
-        'test_accuracy': accuracy_score(
-            test_data.y.numpy(), pred.numpy())
-    }
-    return metrics
+    # Plotting the training loss
+    plt.figure(figsize=(10, 5))
+    plt.plot(loss_values, label='Training Loss')
+    plt.title('Training Loss Over Epochs')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.savefig('loss_graph.png')
 
-def print_metrics(metrics):
-    print("Confusion Matrix:\n", metrics['conf_matrix'])
-    print(f"Test Accuracy: {metrics['test_accuracy']:.4f}")
-    print(f"Precision: {metrics['precision']:.4f}")
-    print(f"Recall: {metrics['recall']:.4f}")
-    print(f"F1 Score: {metrics['f1']:.4f}")
+    evaluate_model(model, test_data)
 
-train_data, test_data, y_train = prepare_data()
-model = initialize_model(train_data, y_train)
-train_model(model, train_data)
-metrics = evaluate_model(model, test_data)
-print_metrics(metrics)
+if __name__ == "__main__":
+    main()

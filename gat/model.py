@@ -1,42 +1,23 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GATConv
+from torch_geometric.nn import GCNConv
+from torch.optim import Adam
 
-
-class GAT(torch.nn.Module):
-    def __init__(self, optimizer, num_features, num_classes):
-        super(GAT, self).__init__()
-
-        self.dropout = 0.6
-        self.heads = 1
-        self.concat = False
-
-        self.conv1 = GATConv(
-            num_features, 8, heads=self.heads, dropout=self.dropout)
-        self.conv2 = GATConv(
-            8 * self.heads, num_classes, heads=1,
-            concat=self.concat, dropout=self.dropout)
-        self.optimizer = optimizer = optimizer(self.parameters(), lr=0.005, weight_decay=5e-4)
+class GCN(torch.nn.Module):
+    def __init__(self, num_features):
+        super(GCN, self).__init__()
+        self.conv1 = GCNConv(num_features, 16)
+        self.conv2 = GCNConv(16, 2)  # Assuming 2 output classes
 
     def forward(self, data):
         x, edge_index = data.x, data.edge_index
-        x = F.dropout(x, p=0.6, training=self.training)
-        x = F.elu(self.conv1(x, edge_index))
-        x = F.dropout(x, p=0.6, training=self.training)
+        x = self.conv1(x, edge_index)
+        x = F.relu(x)
         x = self.conv2(x, edge_index)
         return F.log_softmax(x, dim=1)
 
-    def train_model(self, data):
-        self.train()  # Set model to training mode
-        self.optimizer.zero_grad()  # Clear previous gradients
-        out = self(data)  # Forward pass
-        loss = F.nll_loss(out[data.train_mask], data.y[data.train_mask])  # Compute loss
-        loss.backward()  # Backpropagate the loss
-        self.optimizer.step()  # Update model weights
-        return loss.item()
-
-    def test_model(self, data):
-        self.eval()  # Set model to evaluation mode
-        out = self(data)  # Forward pass
-        _, pred = out.max(dim=1)  # Get predictions
-        return pred  # Return accuracy and predictions
+def initialize_model(train_data):
+    model = GCN(train_data.num_features)
+    optimizer = Adam(model.parameters(), lr=0.01)
+    loss_func = F.nll_loss
+    return model, optimizer, loss_func
