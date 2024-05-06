@@ -6,8 +6,16 @@ from torch_geometric.nn import GATConv
 class GAT(torch.nn.Module):
     def __init__(self, optimizer, num_features, num_classes):
         super(GAT, self).__init__()
-        self.conv1 = GATConv(num_features, 8, heads=8, dropout=0.6)
-        self.conv2 = GATConv(8 * 8, num_classes, heads=1, concat=True, dropout=0.6)
+
+        self.dropout = 0.6
+        self.heads = 1
+        self.concat = False
+
+        self.conv1 = GATConv(
+            num_features, 8, heads=self.heads, dropout=self.dropout)
+        self.conv2 = GATConv(
+            8 * self.heads, num_classes, heads=1,
+            concat=self.concat, dropout=self.dropout)
         self.optimizer = optimizer = optimizer(self.parameters(), lr=0.005, weight_decay=5e-4)
 
     def forward(self, data):

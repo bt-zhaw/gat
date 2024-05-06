@@ -7,13 +7,20 @@ import torch
 def ip_encoder(df, column_name):
     def encode_ip(ip_address):
         if ':' in ip_address:
+            # IPv6 address
             parts = [int(x, 16) if x else 0 for x in ip_address.split(':')]
             parts += [0] * (8 - len(parts))
+            max_value = 65535  # Max value for a segment in IPv6 (16 bits)
         elif '.' in ip_address:
+            # IPv4 address
             parts = [int(x) for x in ip_address.split('.')] + [0] * 4
+            max_value = 255    # Max value for a byte in IPv4
         else:
             raise ValueError("Invalid IP address format")
-        return parts
+
+        # Normalize the parts
+        normalized_parts = [x / max_value for x in parts]
+        return normalized_parts
 
     df_expanded = pd.DataFrame(df[column_name].apply(encode_ip).tolist(),
                                index=df.index,

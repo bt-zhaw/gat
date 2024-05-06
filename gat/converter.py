@@ -14,7 +14,8 @@ from gat.encoder import (
 def construct_port_scan_label(X):
     X['timestamp'] = pd.to_datetime(X['timestamp'], utc=True)
     X.sort_values(by=['ip_source', 'timestamp'], inplace=True)
-    time_window = '5T'  
+    time_window = '5T'
+    time_window = '10S'
 
     def diversity_index(x):
         if not isinstance(x, pd.Series):
@@ -49,6 +50,39 @@ def convert_to_graph(X, y):
     }
     for column, encoder_function in encoder_map.items():
         X = encoder_function(X, column)
+
+    X = X.drop(
+        columns=[
+            'source_pod_label_normalized',
+            'destination_pod_label_normalized',
+            'source_namespace_label_normalized',
+            'destination_namespace_label_normalized',
+            'source_port_label_normalized',
+            'destination_port_label_normalized',
+            'ack_flag',
+            'psh_flag',
+            'ip_source_part1',
+            'ip_source_part2',
+            'ip_source_part3',
+            'ip_source_part4',
+            'ip_source_part5',
+            'ip_source_part6',
+            'ip_source_part7',
+            'ip_source_part8',
+            'ip_destination_part1',
+            'ip_destination_part2',
+            'ip_destination_part3',
+            'ip_destination_part4',
+            'ip_destination_part5',
+            'ip_destination_part6',
+            'ip_destination_part7',
+            'ip_destination_part8',
+        ])
+
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    filename = f'timestamp_{timestamp}.csv'
+    X.to_csv(filename, index=False)
     
     # Create a DataFrame with the correct column names
     X = X.apply(pd.to_numeric, errors='coerce').fillna(0)

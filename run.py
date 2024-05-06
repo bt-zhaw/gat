@@ -15,7 +15,7 @@ from gat.encoder import boolean_string_to_int
 from gat.load_data import load_data
 from gat.model import GAT
 
-EPOCHS = 20
+EPOCHS = 50
 TEST_SIZE = 0.25
 RANDOM_STATE = 42
 
